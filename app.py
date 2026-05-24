@@ -1,6 +1,5 @@
 import os
-import sys
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
@@ -10,12 +9,7 @@ app = Flask(__name__,
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Используем SQLite с постоянным путём на Render
-# Render позволяет запись в /tmp и в директорию проекта
-import tempfile
-import os
-
-# Создаём директорию для базы данных, если её нет
+# Создаём директорию для базы данных
 db_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 os.makedirs(db_dir, exist_ok=True)
 
@@ -23,11 +17,9 @@ db_path = os.path.join(db_dir, 'recipes.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-print(f"Using database at: {db_path}")
-
 db = SQLAlchemy(app)
 
-# Модель данных
+# Модель рецепта
 class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -37,14 +29,28 @@ class Recipe(db.Model):
     prep_time = db.Column(db.Integer, default=30)
     category = db.Column(db.String(100), default='Основное блюдо')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviews = db.relationship('Review', backref='recipe', lazy=True, cascade='all, delete-orphan')
+    
+    def average_rating(self):
+        if self.reviews:
+            return sum(r.rating for r in self.reviews) / len(self.reviews)
+        return 0
+    
+    def rating_count(self):
+        return len(self.reviews)
 
-    def __repr__(self):
-        return f'<Recipe {self.title}>'
+# Модель отзыва
+class Review(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    author = db.Column(db.String(100), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    recipe_id = db.Column(db.Integer, db.ForeignKey('recipe.id'), nullable=False)
 
 # Создаём таблицы
 with app.app_context():
     db.create_all()
-    print("Database tables created successfully")
 
 # Маршруты
 @app.route('/')
@@ -56,7 +62,8 @@ def index():
 @app.route('/recipe/<int:id>')
 def recipe_detail(id):
     recipe = Recipe.query.get_or_404(id)
-    return render_template('recipe_detail.html', recipe=recipe)
+    reviews = Review.query.filter_by(recipe_id=id).order_by(Review.created_at.desc()).all()
+    return render_template('recipe_detail.html', recipe=recipe, reviews=reviews)
 
 @app.route('/add', methods=['GET', 'POST'])
 def add_recipe():
@@ -72,7 +79,7 @@ def add_recipe():
             )
             db.session.add(recipe)
             db.session.commit()
-            flash(f'Рецепт "{recipe.title}" успешно добавлен!', 'success')
+            flash(f'✨ Рецепт "{recipe.title}" успешно добавлен!', 'success')
             return redirect(url_for('index'))
         except Exception as e:
             db.session.rollback()
@@ -92,7 +99,7 @@ def edit_recipe(id):
             recipe.prep_time = int(request.form.get('prep_time', 30))
             recipe.category = request.form.get('category', 'Основное блюдо')
             db.session.commit()
-            flash(f'Рецепт "{recipe.title}" обновлен!', 'success')
+            flash(f'📝 Рецепт "{recipe.title}" обновлен!', 'success')
             return redirect(url_for('recipe_detail', id=recipe.id))
         except Exception as e:
             db.session.rollback()
@@ -106,8 +113,44 @@ def delete_recipe(id):
     title = recipe.title
     db.session.delete(recipe)
     db.session.commit()
-    flash(f'Рецепт "{title}" удален', 'info')
+    flash(f'🗑️ Рецепт "{title}" удален', 'info')
     return redirect(url_for('index'))
+
+@app.route('/add_review/<int:recipe_id>', methods=['POST'])
+def add_review(recipe_id):
+    recipe = Recipe.query.get_or_404(recipe_id)
+    try:
+        author = request.form.get('author', 'Аноним')
+        rating = int(request.form.get('rating', 5))
+        comment = request.form.get('comment', '')
+        
+        if not comment:
+            flash('Пожалуйста, оставьте комментарий!', 'danger')
+            return redirect(url_for('recipe_detail', id=recipe_id))
+        
+        review = Review(
+            author=author,
+            rating=rating,
+            comment=comment,
+            recipe_id=recipe_id
+        )
+        db.session.add(review)
+        db.session.commit()
+        flash('💬 Спасибо за ваш отзыв!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ошибка при добавлении отзыва: {str(e)}', 'danger')
+    
+    return redirect(url_for('recipe_detail', id=recipe_id))
+
+@app.route('/delete_review/<int:review_id>')
+def delete_review(review_id):
+    review = Review.query.get_or_404(review_id)
+    recipe_id = review.recipe_id
+    db.session.delete(review)
+    db.session.commit()
+    flash('Отзыв удален', 'info')
+    return redirect(url_for('recipe_detail', id=recipe_id))
 
 @app.route('/category/<category>')
 def category_filter(category):
@@ -129,7 +172,6 @@ def search():
     categories = [cat[0] for cat in db.session.query(Recipe.category).distinct().all() if cat[0]]
     return render_template('index.html', recipes=recipes, categories=categories, search_query=query)
 
-# Health check для Render
 @app.route('/health')
 def health():
     return {"status": "healthy"}, 200
