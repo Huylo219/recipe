@@ -2,22 +2,30 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+import sys
+
+print("=== Запуск приложения ===")
+print(f"Python version: {sys.version}")
+print(f"Current directory: {os.getcwd()}")
+print(f"Files in directory: {os.listdir('.')}")
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
-# Настройка базы данных: PostgreSQL на Render или SQLite для локальной разработки
+# Настройка базы данных
 DATABASE_URL = os.environ.get('DATABASE_URL')
+print(f"DATABASE_URL set: {bool(DATABASE_URL)}")
+
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
-    # Render.com использует postgres://, но SQLAlchemy требует postgresql://
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///recipes.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+print(f"Using database: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 db = SQLAlchemy(app)
 
-# Модель для рецептов
+# Модель рецептов
 class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
@@ -31,25 +39,32 @@ class Recipe(db.Model):
     def __repr__(self):
         return f'<Recipe {self.title}>'
 
-# Создание таблиц (безопасно для обоих типов БД)
-with app.app_context():
-    db.create_all()
+# Создание таблиц с обработкой ошибок
+try:
+    with app.app_context():
+        print("Creating database tables...")
+        db.create_all()
+        print("Tables created successfully")
+except Exception as e:
+    print(f"Error creating tables: {e}")
 
-# Главная страница
+# Маршруты
 @app.route('/')
 def index():
-    recipes = Recipe.query.order_by(Recipe.created_at.desc()).all()
-    categories = db.session.query(Recipe.category).distinct().all()
-    categories = [cat[0] for cat in categories]
-    return render_template('index.html', recipes=recipes, categories=categories)
+    try:
+        recipes = Recipe.query.order_by(Recipe.created_at.desc()).all()
+        categories = db.session.query(Recipe.category).distinct().all()
+        categories = [cat[0] for cat in categories]
+        return render_template('index.html', recipes=recipes, categories=categories)
+    except Exception as e:
+        print(f"Error in index: {e}")
+        return f"Error: {e}", 500
 
-# Просмотр рецепта
 @app.route('/recipe/<int:id>')
 def recipe_detail(id):
     recipe = Recipe.query.get_or_404(id)
     return render_template('recipe_detail.html', recipe=recipe)
 
-# Добавление рецепта
 @app.route('/add', methods=['GET', 'POST'])
 def add_recipe():
     if request.method == 'POST':
@@ -81,7 +96,6 @@ def add_recipe():
     
     return render_template('add_recipe.html')
 
-# Редактирование рецепта
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 def edit_recipe(id):
     recipe = Recipe.query.get_or_404(id)
@@ -100,7 +114,6 @@ def edit_recipe(id):
     
     return render_template('edit_recipe.html', recipe=recipe)
 
-# Удаление рецепта
 @app.route('/delete/<int:id>')
 def delete_recipe(id):
     recipe = Recipe.query.get_or_404(id)
@@ -110,7 +123,6 @@ def delete_recipe(id):
     flash(f'Рецепт "{title}" удален!', 'info')
     return redirect(url_for('index'))
 
-# Фильтрация по категориям
 @app.route('/category/<category>')
 def category_filter(category):
     recipes = Recipe.query.filter_by(category=category).all()
@@ -118,7 +130,6 @@ def category_filter(category):
     categories = [cat[0] for cat in categories]
     return render_template('index.html', recipes=recipes, categories=categories, current_category=category)
 
-# Поиск рецептов
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
