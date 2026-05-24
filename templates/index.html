@@ -42,54 +42,44 @@
                 <div class="card h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-3">
-                            <h5 class="card-title" style="font-family: 'Playfair Display', serif; font-size: 1.3rem;">
-                                {{ recipe.title }}
-                            </h5>
-                            <span class="badge-custom">
-                                {{ recipe.category }}
-                            </span>
+                            <h5 class="card-title">{{ recipe.title }}</h5>
+                            <span class="badge-custom">{{ recipe.category }}</span>
                         </div>
-                        <p class="card-text" style="color: #6b4b38;">{{ recipe.description[:100] }}{% if recipe.description|length > 100 %}...{% endif %}</p>
-                        <div class="mb-3">
-                            <div class="stars-display">
-                                {% set avg_rating = recipe.average_rating() %}
-                                {% for i in range(5) %}
-                                    {% if i < avg_rating|round(0, 'floor') %}
-                                        <i class="fas fa-star"></i>
-                                    {% elif i < avg_rating %}
-                                        <i class="fas fa-star-half-alt"></i>
-                                    {% else %}
-                                        <i class="far fa-star"></i>
-                                    {% endif %}
-                                {% endfor %}
-                                <small class="text-muted">({{ recipe.rating_count() }})</small>
-                            </div>
+                        <p class="card-text">{{ recipe.description[:100] }}...</p>
+                        <div class="stars-display">
+                            {% set avg = recipe.average_rating() %}
+                            {% for i in range(5) %}
+                                {% if i < avg|round(0, 'floor') %}
+                                    <i class="fas fa-star"></i>
+                                {% elif i < avg %}
+                                    <i class="fas fa-star-half-alt"></i>
+                                {% else %}
+                                    <i class="far fa-star"></i>
+                                {% endif %}
+                            {% endfor %}
+                            <small class="text-muted">({{ recipe.rating_count() }})</small>
                         </div>
-                        <div class="mb-3">
-                            <small class="text-muted">
-                                <i class="far fa-clock"></i> {{ recipe.prep_time }} мин
-                            </small>
+                        <div class="mt-2">
+                            <small><i class="far fa-clock"></i> {{ recipe.prep_time }} мин</small>
                         </div>
-                        <div class="btn-group w-100" role="group">
-                            <a href="{{ url_for('recipe_detail', id=recipe.id) }}" class="btn btn-primary btn-sm">
-                                <i class="fas fa-eye"></i> Смотреть
-                            </a>
-                            <a href="{{ url_for('edit_recipe', id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <a href="{{ url_for('delete_recipe', id=recipe.id) }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Вы уверены?')">
-                                <i class="fas fa-trash"></i>
-                            </a>
+                        <div class="btn-group w-100 mt-3">
+                            <a href="{{ url_for('recipe_detail', id=recipe.id) }}" class="btn btn-primary btn-sm">Смотреть</a>
+                            <a href="{{ url_for('edit_recipe', id=recipe.id) }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-edit"></i></a>
+                            <a href="{{ url_for('delete_recipe', id=recipe.id) }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Удалить?')"><i class="fas fa-trash"></i></a>
                         </div>
                     </div>
                 </div>
             </div>
         {% endfor %}
     {% else %}
-        <div class="col-12">
-            <div class="alert text-center animate-fade-in" style="background: white; border-radius: 20px;">
+        <div class="col-12 text-center">
+            <div class="alert" style="background: white; border-radius: 20px;">
                 <i class="fas fa-book" style="font-size: 3rem; color: #d4856b;"></i>
                 <h3 class="mt-3">Пока нет рецептов</h3>
                 <p>Станьте первым, кто поделится своим кулинарным шедевром!</p>
-                <a href="{{ url_for('add_recipe') }}" class="btn btn-primary mt-2">
-                    <i class="fas fa-plus-circle"></i> Добавить рецепт
+                <a href="{{ url_for('add_recipe') }}" class="btn btn-primary">Добавить рецепт</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
