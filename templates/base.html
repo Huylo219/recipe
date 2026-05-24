@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Нежная книга рецептов{% endblock %}</title>
+    <title>{% block title %}Книга рецептов{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
+        /* (Стили остаются те же, что и в предыдущей версии) */
         * {
             margin: 0;
             padding: 0;
@@ -21,7 +22,6 @@
             color: #4a3728;
         }
 
-        /* Нежная градиентная навигация */
         .navbar {
             background: linear-gradient(135deg, #ffffff 0%, #fef8f0 100%);
             backdrop-filter: blur(10px);
@@ -39,7 +39,6 @@
             background-clip: text;
         }
 
-        /* Плавные карточки */
         .card {
             background: rgba(255, 255, 255, 0.95);
             border: none;
@@ -55,7 +54,6 @@
             box-shadow: 0 20px 40px rgba(212, 133, 107, 0.15);
         }
 
-        /* Кнопки */
         .btn-primary {
             background: linear-gradient(135deg, #d4856b 0%, #e8a88a 100%);
             border: none;
@@ -84,7 +82,6 @@
             transform: translateY(-2px);
         }
 
-        /* Звезды рейтинга */
         .star-rating {
             direction: rtl;
             display: inline-flex;
@@ -115,7 +112,6 @@
             letter-spacing: 2px;
         }
 
-        /* Отзывы */
         .review-card {
             background: white;
             border-radius: 15px;
@@ -130,7 +126,6 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
         }
 
-        /* Анимации */
         @keyframes fadeInUp {
             from {
                 opacity: 0;
@@ -146,7 +141,6 @@
             animation: fadeInUp 0.6s ease-out;
         }
 
-        /* Категории */
         .category-btn {
             border-radius: 50px;
             padding: 8px 20px;
@@ -155,6 +149,8 @@
             background: rgba(255, 255, 255, 0.9);
             border: 1px solid #e8a88a;
             color: #d4856b;
+            text-decoration: none;
+            display: inline-block;
         }
 
         .category-btn:hover,
@@ -164,7 +160,6 @@
             transform: translateY(-2px);
         }
 
-        /* Формы */
         .form-control, .form-select {
             border-radius: 12px;
             border: 2px solid #f0e0d8;
@@ -178,7 +173,6 @@
             outline: none;
         }
 
-        /* Футер */
         .footer {
             background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(10px);
@@ -188,20 +182,44 @@
             box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
         }
 
-        /* Бейджи */
         .badge-custom {
             background: linear-gradient(135deg, #d4856b 0%, #e8a88a 100%);
             border-radius: 50px;
             padding: 5px 15px;
             font-weight: 500;
+            color: white;
         }
 
-        /* Алerts */
         .alert {
             border-radius: 15px;
             border: none;
             background: white;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn-secondary {
+            background: #8b6b58;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 28px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #6b4b38;
+            transform: translateY(-2px);
+        }
+        
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #d4856b 0%, #e8a88a 100%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-right: 8px;
         }
     </style>
 </head>
@@ -209,8 +227,8 @@
     <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-heart" style="background: linear-gradient(135deg, #d4856b 0%, #e8a88a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
-                Нежная книга рецептов
+                <i class="fas fa-utensils" style="color: #d4856b;"></i>
+                Книга рецептов
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -222,11 +240,44 @@
                             <i class="fas fa-home"></i> Главная
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('add_recipe') }}">
-                            <i class="fas fa-plus-circle"></i> Добавить рецепт
-                        </a>
-                    </li>
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('add_recipe') }}">
+                                <i class="fas fa-plus-circle"></i> Добавить рецепт
+                            </a>
+                        </li>
+                        {% if current_user.is_admin %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin_panel') }}">
+                                    <i class="fas fa-shield-alt"></i> Админ-панель
+                                </a>
+                            </li>
+                        {% endif %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                <div class="user-avatar d-inline-block">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                {{ current_user.username }}
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                                    <i class="fas fa-sign-out-alt"></i> Выйти
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}">
+                                <i class="fas fa-sign-in-alt"></i> Вход
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('register') }}">
+                                <i class="fas fa-user-plus"></i> Регистрация
+                            </a>
+                        </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
@@ -251,8 +302,8 @@
     <div class="footer">
         <div class="container text-center">
             <p class="mb-0">
-                <i class="fas fa-utensils"></i> Приготовлено с любовью | 
-                <i class="fas fa-heart" style="color: #d4856b;"></i> Нежная книга рецептов
+                <i class="fas fa-utensils"></i> Готовим с душой | 
+                <i class="fas fa-heart" style="color: #d4856b;"></i> Книга рецептов
             </p>
             <small class="text-muted">Делитесь своими кулинарными шедеврами и вдохновляйте других</small>
         </div>
@@ -260,7 +311,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Плавное появление элементов
         document.addEventListener('DOMContentLoaded', function() {
             const cards = document.querySelectorAll('.card, .review-card');
             cards.forEach((card, index) => {
