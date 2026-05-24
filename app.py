@@ -284,8 +284,9 @@ def add_recipe():
 def edit_recipe(id):
     recipe = Recipe.query.get_or_404(id)
     
+    # Проверка прав
     if not current_user.is_admin and recipe.user_id != current_user.id:
-        flash('❌ У вас нет прав для редактирования этого рецепта', 'danger')
+        flash('У вас нет прав для редактирования этого рецепта', 'danger')
         return redirect(url_for('index'))
     
     if request.method == 'POST':
@@ -298,11 +299,11 @@ def edit_recipe(id):
             recipe.category = request.form.get('category', 'Основное блюдо')
             
             db.session.commit()
-            flash(f'📝 Рецепт "{recipe.title}" успешно обновлен!', 'success')
+            flash(f'Рецепт "{recipe.title}" обновлен!', 'success')
             return redirect(url_for('recipe_detail', id=recipe.id))
         except Exception as e:
             db.session.rollback()
-            flash(f'❌ Ошибка при сохранении: {str(e)}', 'danger')
+            flash(f'Ошибка: {str(e)}', 'danger')
             return redirect(url_for('edit_recipe', id=recipe.id))
     
     return render_template('edit_recipe.html', recipe=recipe)
