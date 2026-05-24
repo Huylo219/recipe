@@ -1,60 +1,48 @@
 {% extends "base.html" %}
 
-{% block title %}Добавить рецепт{% endblock %}
-
 {% block content %}
-<div class="row">
-    <div class="col-md-8 mx-auto">
-        <div class="recipe-card">
-            <h2 class="mb-4"><i class="fas fa-plus-circle"></i> Добавить новый рецепт</h2>
-            
-            <form method="POST">
-                <div class="mb-3">
-                    <label for="title" class="form-label">Название блюда *</label>
-                    <input type="text" class="form-control" id="title" name="title" required>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="category" class="form-label">Категория</label>
-                    <select class="form-control" id="category" name="category">
-                        <option>Основное блюдо</option>
-                        <option>Закуска</option>
-                        <option>Суп</option>
-                        <option>Салат</option>
-                        <option>Десерт</option>
-                        <option>Напиток</option>
-                    </select>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="prep_time" class="form-label">Время приготовления (минуты)</label>
-                    <input type="number" class="form-control" id="prep_time" name="prep_time" value="30">
-                </div>
-                
-                <div class="mb-3">
-                    <label for="description" class="form-label">Краткое описание *</label>
-                    <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="ingredients" class="form-label">Ингредиенты *</label>
-                    <textarea class="form-control" id="ingredients" name="ingredients" rows="5" required placeholder="Например:&#10;• 500 г муки&#10;• 3 яйца&#10;• 200 мл молока"></textarea>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="instructions" class="form-label">Инструкция приготовления *</label>
-                    <textarea class="form-control" id="instructions" name="instructions" rows="8" required placeholder="Пошаговый рецепт..."></textarea>
-                </div>
-                
-                <div class="text-center">
-                    <button type="submit" class="btn btn-primary btn-lg">
-                        <i class="fas fa-save"></i> Сохранить рецепт
-                    </button>
-                    <a href="{{ url_for('index') }}" class="btn btn-secondary btn-lg">
-                        <i class="fas fa-times"></i> Отмена
-                    </a>
-                </div>
-            </form>
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3>➕ Новый рецепт</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label>Название *</label>
+                        <input type="text" name="title" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Категория</label>
+                        <select name="category" class="form-control">
+                            <option>Основное блюдо</option>
+                            <option>Закуска</option>
+                            <option>Суп</option>
+                            <option>Салат</option>
+                            <option>Десерт</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Время (минуты)</label>
+                        <input type="number" name="prep_time" class="form-control" value="30">
+                    </div>
+                    <div class="mb-3">
+                        <label>Описание *</label>
+                        <textarea name="description" class="form-control" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label>Ингредиенты *</label>
+                        <textarea name="ingredients" class="form-control" rows="5" required placeholder="• Ингредиент 1&#10;• Ингредиент 2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label>Инструкция *</label>
+                        <textarea name="instructions" class="form-control" rows="8" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">Отмена</a>
+                </form>
+            </div>
         </div>
     </div>
 </div>
