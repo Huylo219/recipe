@@ -1,59 +1,127 @@
 {% extends "base.html" %}
 
-{% block title %}{{ recipe.title }} - Книга рецептов{% endblock %}
+{% block title %}{{ recipe.title }}{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-lg-8 mx-auto">
-        <div class="recipe-card">
-            <div class="d-flex justify-content-between align-items-start mb-3">
-                <h1 class="display-5">{{ recipe.title }}</h1>
-                <span class="badge badge-category fs-6">{{ recipe.category }}</span>
-            </div>
-            
-            <div class="mb-4">
-                <p class="lead">{{ recipe.description }}</p>
-                <div class="text-muted">
-                    <i class="far fa-clock"></i> Время приготовления: {{ recipe.prep_time }} минут
-                    <br>
-                    <i class="far fa-calendar-alt"></i> Добавлен: {{ recipe.created_at.strftime('%d.%m.%Y') }}
+        <div class="card animate-fade-in">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <h1 class="display-5" style="font-family: 'Playfair Display', serif;">{{ recipe.title }}</h1>
+                    <span class="badge-custom">{{ recipe.category }}</span>
                 </div>
-            </div>
-            
-            <div class="row">
-                <div class="col-md-5 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0"><i class="fas fa-shopping-basket"></i> Ингредиенты</h5>
-                        </div>
-                        <div class="card-body">
-                            <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit;">{{ recipe.ingredients }}</pre>
-                        </div>
+                
+                <div class="mb-4">
+                    <div class="stars-display mb-2">
+                        {% set avg_rating = recipe.average_rating() %}
+                        {% for i in range(5) %}
+                            {% if i < avg_rating|round(0, 'floor') %}
+                                <i class="fas fa-star" style="color: #ffc107;"></i>
+                            {% elif i < avg_rating %}
+                                <i class="fas fa-star-half-alt" style="color: #ffc107;"></i>
+                            {% else %}
+                                <i class="far fa-star" style="color: #ffc107;"></i>
+                            {% endif %}
+                        {% endfor %}
+                        <span class="ms-2 text-muted">{{ recipe.rating_count() }} отзывов</span>
+                    </div>
+                    <p class="lead">{{ recipe.description }}</p>
+                    <div class="text-muted">
+                        <i class="far fa-clock"></i> {{ recipe.prep_time }} минут
+                        <br>
+                        <i class="far fa-calendar-alt"></i> {{ recipe.created_at.strftime('%d.%m.%Y') }}
                     </div>
                 </div>
                 
-                <div class="col-md-7 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0"><i class="fas fa-list-ol"></i> Инструкция по приготовлению</h5>
+                <div class="row mb-4">
+                    <div class="col-md-5 mb-3">
+                        <div style="background: #fef8f0; border-radius: 15px; padding: 20px;">
+                            <h4><i class="fas fa-shopping-basket"></i> Ингредиенты</h4>
+                            <pre style="white-space: pre-wrap; font-family: inherit;">{{ recipe.ingredients }}</pre>
                         </div>
-                        <div class="card-body">
-                            <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit;">{{ recipe.instructions }}</pre>
+                    </div>
+                    <div class="col-md-7 mb-3">
+                        <div style="background: #fef8f0; border-radius: 15px; padding: 20px;">
+                            <h4><i class="fas fa-list-ol"></i> Приготовление</h4>
+                            <pre style="white-space: pre-wrap; font-family: inherit;">{{ recipe.instructions }}</pre>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="text-center mt-3">
-                <a href="{{ url_for('edit_recipe', id=recipe.id) }}" class="btn btn-warning">
-                    <i class="fas fa-edit"></i> Редактировать
-                </a>
-                <a href="{{ url_for('delete_recipe', id=recipe.id) }}" class="btn btn-danger" onclick="return confirm('Вы уверены?')">
-                    <i class="fas fa-trash"></i> Удалить
-                </a>
-                <a href="{{ url_for('index') }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Назад
-                </a>
+
+                <!-- Форма добавления отзыва -->
+                <div class="mt-4" style="background: linear-gradient(135deg, #fff5ee 0%, #fff 100%); border-radius: 20px; padding: 25px;">
+                    <h4><i class="fas fa-comment-dots"></i> Оставить отзыв</h4>
+                    <form method="POST" action="{{ url_for('add_review', recipe_id=recipe.id) }}">
+                        <div class="mb-3">
+                            <label>Ваше имя</label>
+                            <input type="text" name="author" class="form-control" placeholder="Имя (или оставьте 'Аноним')">
+                        </div>
+                        <div class="mb-3">
+                            <label>Оценка</label>
+                            <div class="star-rating">
+                                <input type="radio" id="star5" name="rating" value="5"><label for="star5">★</label>
+                                <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
+                                <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
+                                <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
+                                <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label>Комментарий</label>
+                            <textarea name="comment" class="form-control" rows="3" required placeholder="Поделитесь впечатлениями о блюде..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Отправить отзыв
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Список отзывов -->
+                {% if reviews %}
+                    <div class="mt-4">
+                        <h4><i class="fas fa-star"></i> Отзывы ({{ reviews|length }})</h4>
+                        {% for review in reviews %}
+                            <div class="review-card">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong><i class="fas fa-user-circle"></i> {{ review.author }}</strong>
+                                        <div class="stars-display mt-1">
+                                            {% for i in range(5) %}
+                                                {% if i < review.rating %}
+                                                    <i class="fas fa-star" style="color: #ffc107; font-size: 14px;"></i>
+                                                {% else %}
+                                                    <i class="far fa-star" style="color: #ffc107; font-size: 14px;"></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">{{ review.created_at.strftime('%d.%m.%Y') }}</small>
+                                </div>
+                                <p class="mt-2 mb-0">{{ review.comment }}</p>
+                                <div class="mt-2">
+                                    <a href="{{ url_for('delete_review', review_id=review.id) }}" class="text-muted" onclick="return confirm('Удалить отзыв?')" style="font-size: 12px;">
+                                        <i class="fas fa-trash-alt"></i> Удалить
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="mt-4 text-center" style="padding: 30px; background: #fef8f0; border-radius: 20px;">
+                        <i class="fas fa-comment" style="font-size: 2rem; color: #d4856b;"></i>
+                        <p class="mt-2">Пока нет отзывов. Будьте первым!</p>
+                    </div>
+                {% endif %}
+
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('edit_recipe', id=recipe.id) }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-edit"></i> Редактировать
+                    </a>
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад
+                    </a>
+                </div>
             </div>
         </div>
     </div>
