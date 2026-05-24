@@ -15,15 +15,14 @@ app = Flask(__name__,
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Настройка базы данных для Render (используем /tmp для SQLite)
-# Если есть DATABASE_URL (PostgreSQL), используем её, иначе SQLite в /tmp
+# Настройка базы данных для Render
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 else:
-    # Для Render используем /tmp - единственная директория, доступная для записи
+    # Используем /tmp для SQLite на Render
     db_path = os.path.join(tempfile.gettempdir(), 'recipes.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     print(f"Using SQLite database at: {db_path}")
@@ -34,7 +33,7 @@ db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-login_manager.login_message = 'Пожалуйста, войдите в систему для доступа к этой странице'
+login_manager.login_message = 'Пожалуйста, войдите в систему'
 
 # Декоратор для проверки прав администратора
 def admin_required(f):
@@ -97,10 +96,16 @@ class Review(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ========== СОЗДАНИЕ АДМИНИСТРАТОРА ==========
+# ========== СОЗДАНИЕ ТАБЛИЦ И АДМИНА ==========
 
-def create_admin():
+def init_db():
+    """Создаёт таблицы и администратора"""
     with app.app_context():
+        # Создаём все таблицы
+        db.create_all()
+        print("✅ Таблицы созданы успешно")
+        
+        # Создаём администратора
         admin = User.query.filter_by(username='admin').first()
         if not admin:
             admin = User(
@@ -115,68 +120,10 @@ def create_admin():
         else:
             print("ℹ️ Администратор уже существует")
 
-# ========== МАРШРУТЫ АВТОРИЗАЦИИ ==========
+# Вызываем инициализацию при запуске
+init_db()
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('index'))
-    
-    if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        
-        if password != confirm_password:
-            flash('Пароли не совпадают!', 'danger')
-            return redirect(url_for('register'))
-        
-        if User.query.filter_by(username=username).first():
-            flash('Пользователь с таким именем уже существует!', 'danger')
-            return redirect(url_for('register'))
-        
-        if User.query.filter_by(email=email).first():
-            flash('Пользователь с таким email уже существует!', 'danger')
-            return redirect(url_for('register'))
-        
-        user = User(username=username, email=email)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
-        
-        flash('Регистрация успешна! Теперь вы можете войти.', 'success')
-        return redirect(url_for('login'))
-    
-    return render_template('register.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('index'))
-    
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
-        
-        if user and user.check_password(password):
-            login_user(user)
-            flash(f'Добро пожаловать, {user.username}!', 'success')
-            return redirect(url_for('index'))
-        else:
-            flash('Неверное имя пользователя или пароль', 'danger')
-    
-    return render_template('login.html')
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash('Вы вышли из системы', 'info')
-    return redirect(url_for('index'))
-
-# ========== ОСНОВНЫЕ МАРШРУТЫ ==========
+# ========== МАРШРУТЫ ==========
 
 @app.route('/')
 def index():
@@ -320,6 +267,65 @@ def search():
     categories = [cat[0] for cat in categories if cat[0]]
     return render_template('index.html', recipes=recipes, categories=categories, search_query=query)
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            login_user(user)
+            flash(f'Добро пожаловать, {user.username}!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Неверное имя пользователя или пароль', 'danger')
+    
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if password != confirm_password:
+            flash('Пароли не совпадают!', 'danger')
+            return redirect(url_for('register'))
+        
+        if User.query.filter_by(username=username).first():
+            flash('Пользователь с таким именем уже существует!', 'danger')
+            return redirect(url_for('register'))
+        
+        if User.query.filter_by(email=email).first():
+            flash('Пользователь с таким email уже существует!', 'danger')
+            return redirect(url_for('register'))
+        
+        user = User(username=username, email=email)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        
+        flash('Регистрация успешна! Теперь вы можете войти.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('register.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Вы вышли из системы', 'info')
+    return redirect(url_for('index'))
+
 @app.route('/admin')
 @admin_required
 def admin_panel():
@@ -366,11 +372,6 @@ def health():
     return {"status": "healthy"}, 200
 
 # ========== ЗАПУСК ==========
-
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        create_admin()
-    
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
