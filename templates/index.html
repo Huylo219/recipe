@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - Книга рецептов{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="text-white">🍽️ Наши рецепты</h1>
+        {% if current_category %}
+            <p class="text-white">Категория: {{ current_category }}</p>
+        {% endif %}
+    </div>
+    <div class="col-md-4">
+        <form action="{{ url_for('search') }}" method="get" class="d-flex">
+            <input type="text" name="q" class="form-control search-bar me-2" placeholder="Поиск рецептов..." value="{{ search_query if search_query else '' }}">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-search"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-light">Все</a>
+            {% for category in categories %}
+                <a href="{{ url_for('category_filter', category=category) }}" class="btn btn-outline-light">{{ category }}</a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {% if recipes %}
+        {% for recipe in recipes %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title">{{ recipe.title }}</h5>
+                            <span class="badge badge-category">{{ recipe.category }}</span>
+                        </div>
+                        <p class="card-text">{{ recipe.description[:100] }}{% if recipe.description|length > 100 %}...{% endif %}</p>
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="far fa-clock"></i> {{ recipe.prep_time }} мин
+                            </small>
+                        </div>
+                        <div class="btn-group w-100" role="group">
+                            <a href="{{ url_for('recipe_detail', id=recipe.id) }}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-eye"></i> Смотреть
+                            </a>
+                            <a href="{{ url_for('edit_recipe', id=recipe.id) }}" class="btn btn-warning btn-sm">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="{{ url_for('delete_recipe', id=recipe.id) }}" class="btn btn-danger btn-sm" onclick="return confirm('Вы уверены, что хотите удалить этот рецепт?')">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle"></i> Рецепты не найдены. 
+                <a href="{{ url_for('add_recipe') }}" class="alert-link">Добавьте первый рецепт!</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
