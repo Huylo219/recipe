@@ -29,6 +29,7 @@
                     {% endif %}
                     
                     <form method="POST" action="{{ url_for('upload_avatar') }}" enctype="multipart/form-data" class="mt-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="row g-2 align-items-center">
                             <div class="col">
                                 <input type="file" name="avatar" class="form-control" accept="image/*">
@@ -45,8 +46,10 @@
                 
                 <hr>
                 
-                <!-- Форма редактирования -->
+                <!-- Форма редактирования профиля -->
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
                     <div class="mb-3">
                         <label class="form-label"><i class="fas fa-user"></i> Полное имя</label>
                         <input type="text" name="full_name" class="form-control" value="{{ current_user.full_name or '' }}">
@@ -83,6 +86,8 @@
                 <div class="mt-4">
                     <h5><i class="fas fa-key"></i> Смена пароля</h5>
                     <form method="POST" action="{{ url_for('change_password') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
                         <div class="mb-3">
                             <label class="form-label">Текущий пароль</label>
                             <input type="password" name="old_password" class="form-control" required>
