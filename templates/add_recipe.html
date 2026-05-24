@@ -8,14 +8,19 @@
         <div class="card animate-fade-in">
             <div class="card-body p-4">
                 <h2 class="mb-4" style="font-family: 'Playfair Display', serif;">
-                    <i class="fas fa-heart" style="color: #d4856b;"></i> Новый рецепт
+                    <i class="fas fa-plus-circle" style="color: #d4856b;"></i> Новый рецепт
                 </h2>
                 
                 <form method="POST">
+                    
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                   
+                    
                     <div class="mb-3">
                         <label class="form-label">Название блюда *</label>
                         <input type="text" name="title" class="form-control" required>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Категория</label>
                         <select name="category" class="form-select">
@@ -27,23 +32,28 @@
                             <option>Напиток</option>
                         </select>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Время приготовления (минуты)</label>
                         <input type="number" name="prep_time" class="form-control" value="30">
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Краткое описание *</label>
-                        <textarea name="description" class="form-control" rows="3" required placeholder="Несколько слов о блюде..."></textarea>
+                        <textarea name="description" class="form-control" rows="3" required></textarea>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Ингредиенты *</label>
-                        <textarea name="ingredients" class="form-control" rows="6" required placeholder="• Мука - 500г&#10;• Яйца - 3шт&#10;• Молоко - 200мл"></textarea>
+                        <textarea name="ingredients" class="form-control" rows="6" required></textarea>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Инструкция приготовления *</label>
-                        <textarea name="instructions" class="form-control" rows="8" required placeholder="Пошаговый рецепт..."></textarea>
+                        <textarea name="instructions" class="form-control" rows="10" required></textarea>
                     </div>
-                    <div class="text-center">
+                    
+                    <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> Сохранить рецепт
                         </button>
