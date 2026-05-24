@@ -32,11 +32,7 @@
                         <br>
                         <i class="far fa-calendar-alt"></i> {{ recipe.created_at.strftime('%d.%m.%Y') }}
                         <br>
-                        <i class="fas fa-user"></i> Автор: {{ recipe.author.username }}
-                        {% if current_user.is_authenticated and (current_user.id == recipe.user_id or current_user.is_admin) %}
-                            <br>
-                            <i class="fas fa-tag"></i> Ваш рецепт
-                        {% endif %}
+                        <i class="fas fa-user"></i> Автор: <a href="{{ url_for('view_profile', username=recipe.author.username) }}">{{ recipe.author.username }}</a>
                     </div>
                 </div>
                 
@@ -55,11 +51,12 @@
                     </div>
                 </div>
 
-                <!-- Форма добавления отзыва (только для авторизованных) -->
                 {% if current_user.is_authenticated %}
                     <div class="mt-4" style="background: linear-gradient(135deg, #fff5ee 0%, #fff 100%); border-radius: 20px; padding: 25px;">
                         <h4><i class="fas fa-comment-dots"></i> Оставить отзыв</h4>
                         <form method="POST" action="{{ url_for('add_review', recipe_id=recipe.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            
                             <div class="mb-3">
                                 <label class="form-label">Ваше имя</label>
                                 <input type="text" name="author" class="form-control" value="{{ current_user.username }}" readonly>
@@ -93,7 +90,6 @@
                     </div>
                 {% endif %}
 
-                <!-- Список отзывов -->
                 {% if reviews %}
                     <div class="mt-4">
                         <h4><i class="fas fa-star"></i> Отзывы ({{ reviews|length }})</h4>
@@ -134,13 +130,12 @@
                     </div>
                 {% endif %}
 
-                <!-- Кнопки управления (видны только автору или админу) -->
                 <div class="text-center mt-4">
                     {% if current_user.is_authenticated and (current_user.id == recipe.user_id or current_user.is_admin) %}
                         <a href="{{ url_for('edit_recipe', id=recipe.id) }}" class="btn btn-outline-secondary">
                             <i class="fas fa-edit"></i> Редактировать
                         </a>
-                        <a href="{{ url_for('delete_recipe', id=recipe.id) }}" class="btn btn-outline-danger" onclick="return confirm('Вы уверены, что хотите удалить этот рецепт?')">
+                        <a href="{{ url_for('delete_recipe', id=recipe.id) }}" class="btn btn-outline-danger" onclick="return confirm('Вы уверены?')">
                             <i class="fas fa-trash"></i> Удалить
                         </a>
                     {% endif %}
