@@ -6,6 +6,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from flask_wtf.csrf import CSRFProtect
 from datetime import datetime
 from functools import wraps
 
@@ -15,6 +16,10 @@ app = Flask(__name__,
             static_folder='static')
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Инициализация CSRF защиты
+csrf = CSRFProtect()
+csrf.init_app(app)
 
 # Настройка для загрузки аватаров
 UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'avatars')
@@ -84,7 +89,6 @@ class User(UserMixin, db.Model):
     def get_avatar(self):
         if self.avatar and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], self.avatar)):
             return url_for('uploaded_file', filename=self.avatar)
-        # Инициальный аватар по умолчанию
         return f"https://ui-avatars.com/api/?name={self.username}&background=d4856b&color=fff&bold=true&size=128"
 
 class Recipe(db.Model):
@@ -211,13 +215,11 @@ def upload_avatar():
         return redirect(url_for('edit_profile'))
     
     if file and allowed_file(file.filename):
-        # Удаляем старый аватар
         if current_user.avatar:
             old_avatar_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.avatar)
             if os.path.exists(old_avatar_path):
                 os.remove(old_avatar_path)
         
-        # Сохраняем новый
         filename = secure_filename(f"user_{current_user.id}_{datetime.now().timestamp()}.{file.filename.rsplit('.', 1)[1].lower()}")
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         current_user.avatar = filename
@@ -240,7 +242,7 @@ def delete_avatar():
         flash('✅ Аватар удален', 'success')
     return redirect(url_for('edit_profile'))
 
-# ========== ОСТАЛЬНЫЕ МАРШРУТЫ (ТЕ ЖЕ) ==========
+# ========== ОСНОВНЫЕ МАРШРУТЫ ==========
 
 @app.route('/')
 def index():
@@ -261,10 +263,10 @@ def add_recipe():
     if request.method == 'POST':
         try:
             recipe = Recipe(
-                title=request.form['title'],
-                description=request.form['description'],
-                ingredients=request.form['ingredients'],
-                instructions=request.form['instructions'],
+                title=request.form.get('title'),
+                description=request.form.get('description'),
+                ingredients=request.form.get('ingredients'),
+                instructions=request.form.get('instructions'),
                 prep_time=int(request.form.get('prep_time', 30)),
                 category=request.form.get('category', 'Основное блюдо'),
                 user_id=current_user.id
@@ -279,30 +281,35 @@ def add_recipe():
             return redirect(url_for('add_recipe'))
     return render_template('add_recipe.html')
 
+# ========== ИСПРАВЛЕННЫЙ МАРШРУТ РЕДАКТИРОВАНИЯ ==========
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_recipe(id):
     recipe = Recipe.query.get_or_404(id)
     
+    # Проверка прав: администратор или автор
     if not current_user.is_admin and recipe.user_id != current_user.id:
-        flash('У вас нет прав для редактирования этого рецепта', 'danger')
+        flash('❌ У вас нет прав для редактирования этого рецепта', 'danger')
         return redirect(url_for('index'))
     
     if request.method == 'POST':
         try:
-            recipe.title = request.form['title']
-            recipe.description = request.form['description']
-            recipe.ingredients = request.form['ingredients']
-            recipe.instructions = request.form['instructions']
+            # Обновляем все поля рецепта
+            recipe.title = request.form.get('title')
+            recipe.description = request.form.get('description')
+            recipe.ingredients = request.form.get('ingredients')
+            recipe.instructions = request.form.get('instructions')
             recipe.prep_time = int(request.form.get('prep_time', 30))
             recipe.category = request.form.get('category', 'Основное блюдо')
+            
             db.session.commit()
-            flash(f'📝 Рецепт "{recipe.title}" обновлен!', 'success')
+            flash(f'📝 Рецепт "{recipe.title}" успешно обновлен!', 'success')
             return redirect(url_for('recipe_detail', id=recipe.id))
         except Exception as e:
             db.session.rollback()
-            flash(f'Ошибка: {str(e)}', 'danger')
+            flash(f'❌ Ошибка при сохранении: {str(e)}', 'danger')
             return redirect(url_for('edit_recipe', id=recipe.id))
+    
     return render_template('edit_recipe.html', recipe=recipe)
 
 @app.route('/delete/<int:id>')
@@ -383,6 +390,8 @@ def search():
     categories = db.session.query(Recipe.category).distinct().all()
     categories = [cat[0] for cat in categories if cat[0]]
     return render_template('index.html', recipes=recipes, categories=categories, search_query=query)
+
+# ========== МАРШРУТЫ АВТОРИЗАЦИИ ==========
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
