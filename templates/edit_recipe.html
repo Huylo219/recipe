@@ -12,9 +12,7 @@
                 </h2>
                 
                 <form method="POST">
-                
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    
                     
                     <div class="mb-3">
                         <label class="form-label">Название блюда *</label>
@@ -40,30 +38,4 @@
                     
                     <div class="mb-3">
                         <label class="form-label">Краткое описание *</label>
-                        <textarea name="description" class="form-control" rows="3" required>{{ recipe.description }}</textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Ингредиенты *</label>
-                        <textarea name="ingredients" class="form-control" rows="6" required>{{ recipe.ingredients }}</textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Инструкция приготовления *</label>
-                        <textarea name="instructions" class="form-control" rows="10" required>{{ recipe.instructions }}</textarea>
-                    </div>
-                    
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Сохранить изменения
-                        </button>
-                        <a href="{{ url_for('recipe_detail', id=recipe.id) }}" class="btn btn-secondary">
-                            <i class="fas fa-times"></i> Отмена
-                        </a>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+                        <textarea name="description"
