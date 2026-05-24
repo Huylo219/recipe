@@ -1,64 +1,55 @@
+import os
+import sys
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-import os
-import sys
 
-print("=== Запуск приложения ===")
-print(f"Python version: {sys.version}")
-print(f"Current directory: {os.getcwd()}")
-print(f"Files in directory: {os.listdir('.')}")
+# Создаем приложение с явными путями
+app = Flask(__name__, 
+            template_folder='templates',
+            static_folder='static')
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Настройка базы данных
-DATABASE_URL = os.environ.get('DATABASE_URL')
-print(f"DATABASE_URL set: {bool(DATABASE_URL)}")
+# Настройка базы данных для Render
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Fix для PostgreSQL на Render
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    # Для локальной разработки
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///recipes.db'
 
-if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
-    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///recipes.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-print(f"Using database: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 db = SQLAlchemy(app)
 
-# Модель рецептов
+# Модель данных
 class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
     ingredients = db.Column(db.Text, nullable=False)
     instructions = db.Column(db.Text, nullable=False)
     prep_time = db.Column(db.Integer, default=30)
-    category = db.Column(db.String(50), default="Основное блюдо")
+    category = db.Column(db.String(100), default='Основное блюдо')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def __repr__(self):
         return f'<Recipe {self.title}>'
 
-# Создание таблиц с обработкой ошибок
-try:
-    with app.app_context():
-        print("Creating database tables...")
-        db.create_all()
-        print("Tables created successfully")
-except Exception as e:
-    print(f"Error creating tables: {e}")
+# Создаем таблицы
+with app.app_context():
+    db.create_all()
 
 # Маршруты
 @app.route('/')
 def index():
-    try:
-        recipes = Recipe.query.order_by(Recipe.created_at.desc()).all()
-        categories = db.session.query(Recipe.category).distinct().all()
-        categories = [cat[0] for cat in categories]
-        return render_template('index.html', recipes=recipes, categories=categories)
-    except Exception as e:
-        print(f"Error in index: {e}")
-        return f"Error: {e}", 500
+    recipes = Recipe.query.order_by(Recipe.created_at.desc()).all()
+    categories = [cat[0] for cat in db.session.query(Recipe.category).distinct().all()]
+    return render_template('index.html', recipes=recipes, categories=categories)
 
 @app.route('/recipe/<int:id>')
 def recipe_detail(id):
@@ -68,66 +59,47 @@ def recipe_detail(id):
 @app.route('/add', methods=['GET', 'POST'])
 def add_recipe():
     if request.method == 'POST':
-        title = request.form.get('title')
-        description = request.form.get('description')
-        ingredients = request.form.get('ingredients')
-        instructions = request.form.get('instructions')
-        prep_time = request.form.get('prep_time', 30)
-        category = request.form.get('category')
-        
-        if not title or not description or not ingredients or not instructions:
-            flash('Пожалуйста, заполните все поля!', 'danger')
-            return redirect(url_for('add_recipe'))
-        
         recipe = Recipe(
-            title=title,
-            description=description,
-            ingredients=ingredients,
-            instructions=instructions,
-            prep_time=int(prep_time),
-            category=category
+            title=request.form['title'],
+            description=request.form['description'],
+            ingredients=request.form['ingredients'],
+            instructions=request.form['instructions'],
+            prep_time=int(request.form.get('prep_time', 30)),
+            category=request.form.get('category', 'Основное блюдо')
         )
-        
         db.session.add(recipe)
         db.session.commit()
-        
-        flash(f'Рецепт "{title}" успешно добавлен!', 'success')
+        flash(f'Рецепт "{recipe.title}" успешно добавлен!', 'success')
         return redirect(url_for('index'))
-    
     return render_template('add_recipe.html')
 
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 def edit_recipe(id):
     recipe = Recipe.query.get_or_404(id)
-    
     if request.method == 'POST':
-        recipe.title = request.form.get('title')
-        recipe.description = request.form.get('description')
-        recipe.ingredients = request.form.get('ingredients')
-        recipe.instructions = request.form.get('instructions')
+        recipe.title = request.form['title']
+        recipe.description = request.form['description']
+        recipe.ingredients = request.form['ingredients']
+        recipe.instructions = request.form['instructions']
         recipe.prep_time = int(request.form.get('prep_time', 30))
-        recipe.category = request.form.get('category')
-        
+        recipe.category = request.form.get('category', 'Основное блюдо')
         db.session.commit()
-        flash(f'Рецепт "{recipe.title}" успешно обновлен!', 'success')
+        flash(f'Рецепт "{recipe.title}" обновлен!', 'success')
         return redirect(url_for('recipe_detail', id=recipe.id))
-    
     return render_template('edit_recipe.html', recipe=recipe)
 
 @app.route('/delete/<int:id>')
 def delete_recipe(id):
     recipe = Recipe.query.get_or_404(id)
-    title = recipe.title
     db.session.delete(recipe)
     db.session.commit()
-    flash(f'Рецепт "{title}" удален!', 'info')
+    flash(f'Рецепт "{recipe.title}" удален', 'info')
     return redirect(url_for('index'))
 
 @app.route('/category/<category>')
 def category_filter(category):
     recipes = Recipe.query.filter_by(category=category).all()
-    categories = db.session.query(Recipe.category).distinct().all()
-    categories = [cat[0] for cat in categories]
+    categories = [cat[0] for cat in db.session.query(Recipe.category).distinct().all()]
     return render_template('index.html', recipes=recipes, categories=categories, current_category=category)
 
 @app.route('/search')
@@ -135,14 +107,14 @@ def search():
     query = request.args.get('q', '')
     if query:
         recipes = Recipe.query.filter(
-            (Recipe.title.contains(query)) | 
-            (Recipe.description.contains(query)) |
-            (Recipe.ingredients.contains(query))
+            Recipe.title.contains(query) | 
+            Recipe.description.contains(query) |
+            Recipe.ingredients.contains(query)
         ).all()
     else:
         recipes = []
-    
     return render_template('index.html', recipes=recipes, search_query=query)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=10000)
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=False)
