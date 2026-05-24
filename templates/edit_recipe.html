@@ -16,25 +16,52 @@
                         <label class="form-label">Название блюда *</label>
                         <input type="text" name="title" class="form-control" value="{{ recipe.title }}" required>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Категория</label>
                         <select name="category" class="form-select">
-                            <option {% if recipe.category == 'Основное блюдо' %}selected{% endif %}>Основное блюдо</option>
-                            <option {% if recipe.category == 'Закуска' %}selected{% endif %}>Закуска</option>
-                            <option {% if recipe.category == 'Суп' %}selected{% endif %}>Суп</option>
-                            <option {% if recipe.category == 'Салат' %}selected{% endif %}>Салат</option>
-                            <option {% if recipe.category == 'Десерт' %}selected{% endif %}>Десерт</option>
-                            <option {% if recipe.category == 'Напиток' %}selected{% endif %}>Напиток</option>
+                            <option value="Основное блюдо" {% if recipe.category == 'Основное блюдо' %}selected{% endif %}>Основное блюдо</option>
+                            <option value="Закуска" {% if recipe.category == 'Закуска' %}selected{% endif %}>Закуска</option>
+                            <option value="Суп" {% if recipe.category == 'Суп' %}selected{% endif %}>Суп</option>
+                            <option value="Салат" {% if recipe.category == 'Салат' %}selected{% endif %}>Салат</option>
+                            <option value="Десерт" {% if recipe.category == 'Десерт' %}selected{% endif %}>Десерт</option>
+                            <option value="Напиток" {% if recipe.category == 'Напиток' %}selected{% endif %}>Напиток</option>
                         </select>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Время приготовления (минуты)</label>
                         <input type="number" name="prep_time" class="form-control" value="{{ recipe.prep_time }}">
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Краткое описание *</label>
                         <textarea name="description" class="form-control" rows="3" required>{{ recipe.description }}</textarea>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Ингредиенты *</label>
-                        <textarea name="ingredients" class="
+                        <textarea name="ingredients" class="form-control" rows="6" required>{{ recipe.ingredients }}</textarea>
+                        <small class="text-muted">Каждый ингредиент с новой строки</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Инструкция приготовления *</label>
+                        <textarea name="instructions" class="form-control" rows="10" required>{{ recipe.instructions }}</textarea>
+                        <small class="text-muted">Пошаговое описание приготовления</small>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Сохранить изменения
+                        </button>
+                        <a href="{{ url_for('recipe_detail', id=recipe.id) }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
