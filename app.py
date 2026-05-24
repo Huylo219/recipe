@@ -1,7 +1,7 @@
 import os
 import sys
 import tempfile
-from flask import Flask, render_template, request, redirect, url_for, flash, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, abort, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -70,7 +70,6 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Личные данные
     full_name = db.Column(db.String(200), default='')
     bio = db.Column(db.Text, default='')
     location = db.Column(db.String(200), default='')
@@ -148,7 +147,6 @@ init_db()
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    from flask import send_from_directory
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # ========== ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ==========
@@ -281,20 +279,17 @@ def add_recipe():
             return redirect(url_for('add_recipe'))
     return render_template('add_recipe.html')
 
-# ========== ИСПРАВЛЕННЫЙ МАРШРУТ РЕДАКТИРОВАНИЯ ==========
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_recipe(id):
     recipe = Recipe.query.get_or_404(id)
     
-    # Проверка прав: администратор или автор
     if not current_user.is_admin and recipe.user_id != current_user.id:
         flash('❌ У вас нет прав для редактирования этого рецепта', 'danger')
         return redirect(url_for('index'))
     
     if request.method == 'POST':
         try:
-            # Обновляем все поля рецепта
             recipe.title = request.form.get('title')
             recipe.description = request.form.get('description')
             recipe.ingredients = request.form.get('ingredients')
