@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        /* (Стили остаются те же, что и в предыдущей версии) */
         * {
             margin: 0;
             padding: 0;
@@ -37,6 +36,34 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+        }
+
+        /* Стили для аватара в навигации */
+        .nav-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 8px;
+            vertical-align: middle;
+            border: 2px solid #e8a88a;
+        }
+        
+        .nav-avatar-placeholder {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #d4856b 0%, #e8a88a 100%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        .nav-avatar-placeholder i {
+            font-size: 16px;
+            color: white;
         }
 
         .card {
@@ -210,15 +237,8 @@
             transform: translateY(-2px);
         }
         
-        .user-avatar {
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #d4856b 0%, #e8a88a 100%);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
+        .dropdown-item i {
+            width: 20px;
             margin-right: 8px;
         }
     </style>
@@ -234,7 +254,7 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('index') }}">
                             <i class="fas fa-home"></i> Главная
@@ -243,24 +263,35 @@
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('add_recipe') }}">
-                                <i class="fas fa-plus-circle"></i> Добавить рецепт
+                                <i class="fas fa-plus-circle"></i> Добавить
                             </a>
                         </li>
                         {% if current_user.is_admin %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('admin_panel') }}">
-                                    <i class="fas fa-shield-alt"></i> Админ-панель
+                                    <i class="fas fa-shield-alt"></i> Админ
                                 </a>
                             </li>
                         {% endif %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                                <div class="user-avatar d-inline-block">
-                                    <i class="fas fa-user"></i>
-                                </div>
-                                {{ current_user.username }}
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                                {% if current_user.avatar %}
+                                    <img src="{{ url_for('uploaded_file', filename=current_user.avatar) }}" class="nav-avatar" alt="avatar">
+                                {% else %}
+                                    <div class="nav-avatar-placeholder">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                {% endif %}
+                                <span>{{ current_user.username }}</span>
                             </a>
-                            <ul class="dropdown-menu">
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('view_profile', username=current_user.username) }}">
+                                    <i class="fas fa-user-circle"></i> Мой профиль
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('edit_profile') }}">
+                                    <i class="fas fa-edit"></i> Редактировать профиль
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{{ url_for('logout') }}">
                                     <i class="fas fa-sign-out-alt"></i> Выйти
                                 </a></li>
