@@ -31,6 +31,12 @@
                         <i class="far fa-clock"></i> {{ recipe.prep_time }} минут
                         <br>
                         <i class="far fa-calendar-alt"></i> {{ recipe.created_at.strftime('%d.%m.%Y') }}
+                        <br>
+                        <i class="fas fa-user"></i> Автор: {{ recipe.author.username }}
+                        {% if current_user.is_authenticated and (current_user.id == recipe.user_id or current_user.is_admin) %}
+                            <br>
+                            <i class="fas fa-tag"></i> Ваш рецепт
+                        {% endif %}
                     </div>
                 </div>
                 
@@ -49,33 +55,43 @@
                     </div>
                 </div>
 
-                <!-- Форма добавления отзыва -->
-                <div class="mt-4" style="background: linear-gradient(135deg, #fff5ee 0%, #fff 100%); border-radius: 20px; padding: 25px;">
-                    <h4><i class="fas fa-comment-dots"></i> Оставить отзыв</h4>
-                    <form method="POST" action="{{ url_for('add_review', recipe_id=recipe.id) }}">
-                        <div class="mb-3">
-                            <label>Ваше имя</label>
-                            <input type="text" name="author" class="form-control" placeholder="Имя (или оставьте 'Аноним')">
-                        </div>
-                        <div class="mb-3">
-                            <label>Оценка</label>
-                            <div class="star-rating">
-                                <input type="radio" id="star5" name="rating" value="5"><label for="star5">★</label>
-                                <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
-                                <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
-                                <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
-                                <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
+                <!-- Форма добавления отзыва (только для авторизованных) -->
+                {% if current_user.is_authenticated %}
+                    <div class="mt-4" style="background: linear-gradient(135deg, #fff5ee 0%, #fff 100%); border-radius: 20px; padding: 25px;">
+                        <h4><i class="fas fa-comment-dots"></i> Оставить отзыв</h4>
+                        <form method="POST" action="{{ url_for('add_review', recipe_id=recipe.id) }}">
+                            <div class="mb-3">
+                                <label class="form-label">Ваше имя</label>
+                                <input type="text" name="author" class="form-control" value="{{ current_user.username }}" readonly>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label>Комментарий</label>
-                            <textarea name="comment" class="form-control" rows="3" required placeholder="Поделитесь впечатлениями о блюде..."></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-paper-plane"></i> Отправить отзыв
-                        </button>
-                    </form>
-                </div>
+                            <div class="mb-3">
+                                <label class="form-label">Оценка</label>
+                                <div class="star-rating">
+                                    <input type="radio" id="star5" name="rating" value="5"><label for="star5">★</label>
+                                    <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
+                                    <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
+                                    <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
+                                    <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Комментарий</label>
+                                <textarea name="comment" class="form-control" rows="3" required placeholder="Поделитесь впечатлениями о блюде..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Отправить отзыв
+                            </button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="mt-4 text-center" style="background: #fef8f0; border-radius: 20px; padding: 20px;">
+                        <i class="fas fa-sign-in-alt" style="font-size: 2rem; color: #d4856b;"></i>
+                        <p class="mt-2">
+                            <a href="{{ url_for('login') }}">Войдите</a> или 
+                            <a href="{{ url_for('register') }}">зарегистрируйтесь</a>, чтобы оставить отзыв
+                        </p>
+                    </div>
+                {% endif %}
 
                 <!-- Список отзывов -->
                 {% if reviews %}
@@ -85,7 +101,7 @@
                             <div class="review-card">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div>
-                                        <strong><i class="fas fa-user-circle"></i> {{ review.author }}</strong>
+                                        <strong><i class="fas fa-user-circle"></i> {{ review.author.username }}</strong>
                                         <div class="stars-display mt-1">
                                             {% for i in range(5) %}
                                                 {% if i < review.rating %}
@@ -96,13 +112,17 @@
                                             {% endfor %}
                                         </div>
                                     </div>
-                                    <small class="text-muted">{{ review.created_at.strftime('%d.%m.%Y') }}</small>
+                                    <div>
+                                        <small class="text-muted">{{ review.created_at.strftime('%d.%m.%Y') }}</small>
+                                    </div>
                                 </div>
                                 <p class="mt-2 mb-0">{{ review.comment }}</p>
                                 <div class="mt-2">
-                                    <a href="{{ url_for('delete_review', review_id=review.id) }}" class="text-muted" onclick="return confirm('Удалить отзыв?')" style="font-size: 12px;">
-                                        <i class="fas fa-trash-alt"></i> Удалить
-                                    </a>
+                                    {% if current_user.is_authenticated and (current_user.id == review.user_id or current_user.is_admin) %}
+                                        <a href="{{ url_for('delete_review', review_id=review.id) }}" class="text-muted" onclick="return confirm('Удалить отзыв?')" style="font-size: 12px;">
+                                            <i class="fas fa-trash-alt"></i> Удалить
+                                        </a>
+                                    {% endif %}
                                 </div>
                             </div>
                         {% endfor %}
@@ -114,12 +134,18 @@
                     </div>
                 {% endif %}
 
+                <!-- Кнопки управления (видны только автору или админу) -->
                 <div class="text-center mt-4">
-                    <a href="{{ url_for('edit_recipe', id=recipe.id) }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-edit"></i> Редактировать
-                    </a>
+                    {% if current_user.is_authenticated and (current_user.id == recipe.user_id or current_user.is_admin) %}
+                        <a href="{{ url_for('edit_recipe', id=recipe.id) }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-edit"></i> Редактировать
+                        </a>
+                        <a href="{{ url_for('delete_recipe', id=recipe.id) }}" class="btn btn-outline-danger" onclick="return confirm('Вы уверены, что хотите удалить этот рецепт?')">
+                            <i class="fas fa-trash"></i> Удалить
+                        </a>
+                    {% endif %}
                     <a href="{{ url_for('index') }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Назад
+                        <i class="fas fa-arrow-left"></i> Назад к рецептам
                     </a>
                 </div>
             </div>
