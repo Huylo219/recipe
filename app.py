@@ -1,4 +1,6 @@
 import os
+import sys
+import tempfile
 from flask import Flask, render_template, request, redirect, url_for, flash, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -6,18 +8,26 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from functools import wraps
 
+# Создаём приложение
 app = Flask(__name__, 
             template_folder='templates',
             static_folder='static')
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Создаём директорию для базы данных
-db_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
-os.makedirs(db_dir, exist_ok=True)
+# Настройка базы данных для Render (используем /tmp для SQLite)
+# Если есть DATABASE_URL (PostgreSQL), используем её, иначе SQLite в /tmp
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+else:
+    # Для Render используем /tmp - единственная директория, доступная для записи
+    db_path = os.path.join(tempfile.gettempdir(), 'recipes.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    print(f"Using SQLite database at: {db_path}")
 
-db_path = os.path.join(db_dir, 'recipes.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -35,7 +45,8 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Модель пользователя
+# ========== МОДЕЛИ ДАННЫХ ==========
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
@@ -52,7 +63,6 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-# Модель рецепта
 class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -73,7 +83,6 @@ class Recipe(db.Model):
     def rating_count(self):
         return len(self.reviews)
 
-# Модель отзыва
 class Review(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     rating = db.Column(db.Integer, nullable=False)
@@ -82,30 +91,32 @@ class Review(db.Model):
     recipe_id = db.Column(db.Integer, db.ForeignKey('recipe.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+# ========== ЗАГРУЗЧИК ПОЛЬЗОВАТЕЛЯ ==========
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Создание администратора по умолчанию
+# ========== СОЗДАНИЕ АДМИНИСТРАТОРА ==========
+
 def create_admin():
-    admin = User.query.filter_by(username='admin').first()
-    if not admin:
-        admin = User(
-            username='admin',
-            email='admin@example.com',
-            is_admin=True
-        )
-        admin.set_password('admin123')
-        db.session.add(admin)
-        db.session.commit()
-        print("Администратор создан: admin / admin123")
+    with app.app_context():
+        admin = User.query.filter_by(username='admin').first()
+        if not admin:
+            admin = User(
+                username='admin',
+                email='admin@example.com',
+                is_admin=True
+            )
+            admin.set_password('admin123')
+            db.session.add(admin)
+            db.session.commit()
+            print("✅ Администратор создан: admin / admin123")
+        else:
+            print("ℹ️ Администратор уже существует")
 
-# Создаём таблицы
-with app.app_context():
-    db.create_all()
-    create_admin()
+# ========== МАРШРУТЫ АВТОРИЗАЦИИ ==========
 
-# Маршруты авторизации
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
@@ -165,21 +176,21 @@ def logout():
     flash('Вы вышли из системы', 'info')
     return redirect(url_for('index'))
 
-# Главная страница
+# ========== ОСНОВНЫЕ МАРШРУТЫ ==========
+
 @app.route('/')
 def index():
     recipes = Recipe.query.order_by(Recipe.created_at.desc()).all()
-    categories = [cat[0] for cat in db.session.query(Recipe.category).distinct().all() if cat[0]]
+    categories = db.session.query(Recipe.category).distinct().all()
+    categories = [cat[0] for cat in categories if cat[0]]
     return render_template('index.html', recipes=recipes, categories=categories)
 
-# Страница рецепта
 @app.route('/recipe/<int:id>')
 def recipe_detail(id):
     recipe = Recipe.query.get_or_404(id)
     reviews = Review.query.filter_by(recipe_id=id).order_by(Review.created_at.desc()).all()
     return render_template('recipe_detail.html', recipe=recipe, reviews=reviews)
 
-# Добавление рецепта
 @app.route('/add', methods=['GET', 'POST'])
 @login_required
 def add_recipe():
@@ -204,13 +215,11 @@ def add_recipe():
             return redirect(url_for('add_recipe'))
     return render_template('add_recipe.html')
 
-# Редактирование рецепта
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_recipe(id):
     recipe = Recipe.query.get_or_404(id)
     
-    # Проверка прав: администратор или автор
     if not current_user.is_admin and recipe.user_id != current_user.id:
         flash('У вас нет прав для редактирования этого рецепта', 'danger')
         return redirect(url_for('index'))
@@ -232,13 +241,11 @@ def edit_recipe(id):
             return redirect(url_for('edit_recipe', id=recipe.id))
     return render_template('edit_recipe.html', recipe=recipe)
 
-# Удаление рецепта
 @app.route('/delete/<int:id>')
 @login_required
 def delete_recipe(id):
     recipe = Recipe.query.get_or_404(id)
     
-    # Проверка прав: администратор или автор
     if not current_user.is_admin and recipe.user_id != current_user.id:
         flash('У вас нет прав для удаления этого рецепта', 'danger')
         return redirect(url_for('index'))
@@ -249,7 +256,6 @@ def delete_recipe(id):
     flash(f'🗑️ Рецепт "{title}" удален', 'info')
     return redirect(url_for('index'))
 
-# Добавление отзыва
 @app.route('/add_review/<int:recipe_id>', methods=['POST'])
 @login_required
 def add_review(recipe_id):
@@ -277,13 +283,11 @@ def add_review(recipe_id):
     
     return redirect(url_for('recipe_detail', id=recipe_id))
 
-# Удаление отзыва
 @app.route('/delete_review/<int:review_id>')
 @login_required
 def delete_review(review_id):
     review = Review.query.get_or_404(review_id)
     
-    # Проверка прав: администратор или автор отзыва
     if not current_user.is_admin and review.user_id != current_user.id:
         flash('У вас нет прав для удаления этого отзыва', 'danger')
         return redirect(url_for('recipe_detail', id=review.recipe_id))
@@ -294,14 +298,13 @@ def delete_review(review_id):
     flash('Отзыв удален', 'info')
     return redirect(url_for('recipe_detail', id=recipe_id))
 
-# Фильтрация по категориям
 @app.route('/category/<category>')
 def category_filter(category):
     recipes = Recipe.query.filter_by(category=category).all()
-    categories = [cat[0] for cat in db.session.query(Recipe.category).distinct().all() if cat[0]]
+    categories = db.session.query(Recipe.category).distinct().all()
+    categories = [cat[0] for cat in categories if cat[0]]
     return render_template('index.html', recipes=recipes, categories=categories, current_category=category)
 
-# Поиск рецептов
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
@@ -313,10 +316,10 @@ def search():
         ).all()
     else:
         recipes = []
-    categories = [cat[0] for cat in db.session.query(Recipe.category).distinct().all() if cat[0]]
+    categories = db.session.query(Recipe.category).distinct().all()
+    categories = [cat[0] for cat in categories if cat[0]]
     return render_template('index.html', recipes=recipes, categories=categories, search_query=query)
 
-# Админ-панель
 @app.route('/admin')
 @admin_required
 def admin_panel():
@@ -325,7 +328,6 @@ def admin_panel():
     reviews = Review.query.all()
     return render_template('admin_panel.html', users=users, recipes=recipes, reviews=reviews)
 
-# Админ: удаление пользователя
 @app.route('/admin/delete_user/<int:id>')
 @admin_required
 def admin_delete_user(id):
@@ -334,7 +336,6 @@ def admin_delete_user(id):
         flash('Нельзя удалить администратора!', 'danger')
         return redirect(url_for('admin_panel'))
     
-    # Удаляем все рецепты пользователя
     for recipe in user.recipes:
         db.session.delete(recipe)
     db.session.delete(user)
@@ -342,7 +343,6 @@ def admin_delete_user(id):
     flash(f'Пользователь {user.username} удален', 'info')
     return redirect(url_for('admin_panel'))
 
-# Админ: удаление любого рецепта
 @app.route('/admin/delete_recipe/<int:id>')
 @admin_required
 def admin_delete_recipe(id):
@@ -352,7 +352,6 @@ def admin_delete_recipe(id):
     flash(f'Рецепт "{recipe.title}" удален администратором', 'info')
     return redirect(url_for('admin_panel'))
 
-# Админ: удаление любого отзыва
 @app.route('/admin/delete_review/<int:id>')
 @admin_required
 def admin_delete_review(id):
@@ -366,6 +365,12 @@ def admin_delete_review(id):
 def health():
     return {"status": "healthy"}, 200
 
+# ========== ЗАПУСК ==========
+
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+        create_admin()
+    
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
