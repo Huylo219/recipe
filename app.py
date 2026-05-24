@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, abo
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from datetime import datetime
 from functools import wraps
 
@@ -15,14 +16,25 @@ app = Flask(__name__,
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Настройка базы данных для Render
+# Настройка для загрузки аватаров
+UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'avatars')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
+
+# Разрешенные расширения для аватаров
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Настройка базы данных
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 else:
-    # Используем /tmp для SQLite на Render
     db_path = os.path.join(tempfile.gettempdir(), 'recipes.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     print(f"Using SQLite database at: {db_path}")
@@ -35,7 +47,6 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Пожалуйста, войдите в систему'
 
-# Декоратор для проверки прав администратора
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -53,6 +64,14 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Личные данные
+    full_name = db.Column(db.String(200), default='')
+    bio = db.Column(db.Text, default='')
+    location = db.Column(db.String(200), default='')
+    avatar = db.Column(db.String(500), default='')
+    website = db.Column(db.String(200), default='')
+    
     recipes = db.relationship('Recipe', backref='author', lazy=True)
     reviews = db.relationship('Review', backref='author', lazy=True)
     
@@ -61,6 +80,12 @@ class User(UserMixin, db.Model):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def get_avatar(self):
+        if self.avatar and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], self.avatar)):
+            return url_for('uploaded_file', filename=self.avatar)
+        # Инициальный аватар по умолчанию
+        return f"https://ui-avatars.com/api/?name={self.username}&background=d4856b&color=fff&bold=true&size=128"
 
 class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -90,40 +115,132 @@ class Review(db.Model):
     recipe_id = db.Column(db.Integer, db.ForeignKey('recipe.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-# ========== ЗАГРУЗЧИК ПОЛЬЗОВАТЕЛЯ ==========
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ========== СОЗДАНИЕ ТАБЛИЦ И АДМИНА ==========
-
 def init_db():
-    """Создаёт таблицы и администратора"""
     with app.app_context():
-        # Создаём все таблицы
         db.create_all()
         print("✅ Таблицы созданы успешно")
         
-        # Создаём администратора
         admin = User.query.filter_by(username='admin').first()
         if not admin:
             admin = User(
                 username='admin',
                 email='admin@example.com',
-                is_admin=True
+                is_admin=True,
+                full_name='Администратор',
+                bio='Я люблю готовить и делиться рецептами!'
             )
             admin.set_password('admin123')
             db.session.add(admin)
             db.session.commit()
             print("✅ Администратор создан: admin / admin123")
-        else:
-            print("ℹ️ Администратор уже существует")
 
-# Вызываем инициализацию при запуске
 init_db()
 
-# ========== МАРШРУТЫ ==========
+# ========== ВСПОМОГАТЕЛЬНЫЕ МАРШРУТЫ ==========
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    from flask import send_from_directory
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# ========== ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ==========
+
+@app.route('/profile/<username>')
+def view_profile(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    recipes = Recipe.query.filter_by(user_id=user.id).order_by(Recipe.created_at.desc()).all()
+    return render_template('profile.html', profile_user=user, recipes=recipes)
+
+@app.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        try:
+            current_user.full_name = request.form.get('full_name', '')
+            current_user.bio = request.form.get('bio', '')
+            current_user.location = request.form.get('location', '')
+            current_user.website = request.form.get('website', '')
+            
+            db.session.commit()
+            flash('✅ Профиль успешно обновлен!', 'success')
+            return redirect(url_for('view_profile', username=current_user.username))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Ошибка: {str(e)}', 'danger')
+    
+    return render_template('edit_profile.html')
+
+@app.route('/profile/change-password', methods=['POST'])
+@login_required
+def change_password():
+    old_password = request.form.get('old_password')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+    
+    if not current_user.check_password(old_password):
+        flash('❌ Неверный текущий пароль!', 'danger')
+        return redirect(url_for('edit_profile'))
+    
+    if new_password != confirm_password:
+        flash('❌ Новые пароли не совпадают!', 'danger')
+        return redirect(url_for('edit_profile'))
+    
+    if len(new_password) < 6:
+        flash('❌ Пароль должен содержать минимум 6 символов!', 'danger')
+        return redirect(url_for('edit_profile'))
+    
+    current_user.set_password(new_password)
+    db.session.commit()
+    flash('✅ Пароль успешно изменен!', 'success')
+    return redirect(url_for('edit_profile'))
+
+@app.route('/profile/upload-avatar', methods=['POST'])
+@login_required
+def upload_avatar():
+    if 'avatar' not in request.files:
+        flash('❌ Файл не выбран', 'danger')
+        return redirect(url_for('edit_profile'))
+    
+    file = request.files['avatar']
+    if file.filename == '':
+        flash('❌ Файл не выбран', 'danger')
+        return redirect(url_for('edit_profile'))
+    
+    if file and allowed_file(file.filename):
+        # Удаляем старый аватар
+        if current_user.avatar:
+            old_avatar_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.avatar)
+            if os.path.exists(old_avatar_path):
+                os.remove(old_avatar_path)
+        
+        # Сохраняем новый
+        filename = secure_filename(f"user_{current_user.id}_{datetime.now().timestamp()}.{file.filename.rsplit('.', 1)[1].lower()}")
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        current_user.avatar = filename
+        db.session.commit()
+        flash('✅ Аватар успешно обновлен!', 'success')
+    else:
+        flash('❌ Неподдерживаемый формат файла. Используйте PNG, JPG, JPEG, GIF или WEBP', 'danger')
+    
+    return redirect(url_for('edit_profile'))
+
+@app.route('/profile/delete-avatar')
+@login_required
+def delete_avatar():
+    if current_user.avatar:
+        avatar_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.avatar)
+        if os.path.exists(avatar_path):
+            os.remove(avatar_path)
+        current_user.avatar = ''
+        db.session.commit()
+        flash('✅ Аватар удален', 'success')
+    return redirect(url_for('edit_profile'))
+
+# ========== ОСТАЛЬНЫЕ МАРШРУТЫ (ТЕ ЖЕ) ==========
 
 @app.route('/')
 def index():
@@ -371,7 +488,6 @@ def admin_delete_review(id):
 def health():
     return {"status": "healthy"}, 200
 
-# ========== ЗАПУСК ==========
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
