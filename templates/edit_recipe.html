@@ -3,59 +3,38 @@
 {% block title %}Редактировать {{ recipe.title }}{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8 mx-auto">
-        <div class="recipe-card">
-            <h2 class="mb-4"><i class="fas fa-edit"></i> Редактировать рецепт</h2>
-            
-            <form method="POST">
-                <div class="mb-3">
-                    <label for="title" class="form-label">Название блюда *</label>
-                    <input type="text" class="form-control" id="title" name="title" value="{{ recipe.title }}" required>
-                </div>
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card animate-fade-in">
+            <div class="card-body p-4">
+                <h2 class="mb-4" style="font-family: 'Playfair Display', serif;">
+                    <i class="fas fa-edit" style="color: #d4856b;"></i> Редактировать рецепт
+                </h2>
                 
-                <div class="mb-3">
-                    <label for="category" class="form-label">Категория</label>
-                    <select class="form-control" id="category" name="category">
-                        <option {% if recipe.category == 'Основное блюдо' %}selected{% endif %}>Основное блюдо</option>
-                        <option {% if recipe.category == 'Закуска' %}selected{% endif %}>Закуска</option>
-                        <option {% if recipe.category == 'Суп' %}selected{% endif %}>Суп</option>
-                        <option {% if recipe.category == 'Салат' %}selected{% endif %}>Салат</option>
-                        <option {% if recipe.category == 'Десерт' %}selected{% endif %}>Десерт</option>
-                        <option {% if recipe.category == 'Напиток' %}selected{% endif %}>Напиток</option>
-                    </select>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="prep_time" class="form-label">Время приготовления (минуты)</label>
-                    <input type="number" class="form-control" id="prep_time" name="prep_time" value="{{ recipe.prep_time }}">
-                </div>
-                
-                <div class="mb-3">
-                    <label for="description" class="form-label">Краткое описание *</label>
-                    <textarea class="form-control" id="description" name="description" rows="3" required>{{ recipe.description }}</textarea>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="ingredients" class="form-label">Ингредиенты *</label>
-                    <textarea class="form-control" id="ingredients" name="ingredients" rows="5" required>{{ recipe.ingredients }}</textarea>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="instructions" class="form-label">Инструкция приготовления *</label>
-                    <textarea class="form-control" id="instructions" name="instructions" rows="8" required>{{ recipe.instructions }}</textarea>
-                </div>
-                
-                <div class="text-center">
-                    <button type="submit" class="btn btn-primary btn-lg">
-                        <i class="fas fa-save"></i> Обновить рецепт
-                    </button>
-                    <a href="{{ url_for('recipe_detail', id=recipe.id) }}" class="btn btn-secondary btn-lg">
-                        <i class="fas fa-times"></i> Отмена
-                    </a>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endblock %}
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Название блюда *</label>
+                        <input type="text" name="title" class="form-control" value="{{ recipe.title }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Категория</label>
+                        <select name="category" class="form-select">
+                            <option {% if recipe.category == 'Основное блюдо' %}selected{% endif %}>Основное блюдо</option>
+                            <option {% if recipe.category == 'Закуска' %}selected{% endif %}>Закуска</option>
+                            <option {% if recipe.category == 'Суп' %}selected{% endif %}>Суп</option>
+                            <option {% if recipe.category == 'Салат' %}selected{% endif %}>Салат</option>
+                            <option {% if recipe.category == 'Десерт' %}selected{% endif %}>Десерт</option>
+                            <option {% if recipe.category == 'Напиток' %}selected{% endif %}>Напиток</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Время приготовления (минуты)</label>
+                        <input type="number" name="prep_time" class="form-control" value="{{ recipe.prep_time }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Краткое описание *</label>
+                        <textarea name="description" class="form-control" rows="3" required>{{ recipe.description }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ингредиенты *</label>
+                        <textarea name="ingredients" class="
