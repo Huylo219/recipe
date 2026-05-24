@@ -2,8 +2,10 @@ services:
   - type: web
     name: recipe-book
     runtime: python3
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      python -m pip install --upgrade pip
+      python -m pip install Flask Flask-SQLAlchemy Flask-Login gunicorn
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.11.8
