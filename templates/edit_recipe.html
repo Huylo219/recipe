@@ -12,6 +12,10 @@
                 </h2>
                 
                 <form method="POST">
+                    <!-- ↓↓↓ ВОТ ЭТУ СТРОКУ ДОБАВИТЬ ↓↓↓ -->
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <!-- ↑↑↑ ВОТ ЭТУ СТРОКУ ДОБАВИТЬ ↑↑↑ -->
+                    
                     <div class="mb-3">
                         <label class="form-label">Название блюда *</label>
                         <input type="text" name="title" class="form-control" value="{{ recipe.title }}" required>
@@ -42,13 +46,11 @@
                     <div class="mb-3">
                         <label class="form-label">Ингредиенты *</label>
                         <textarea name="ingredients" class="form-control" rows="6" required>{{ recipe.ingredients }}</textarea>
-                        <small class="text-muted">Каждый ингредиент с новой строки</small>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Инструкция приготовления *</label>
                         <textarea name="instructions" class="form-control" rows="10" required>{{ recipe.instructions }}</textarea>
-                        <small class="text-muted">Пошаговое описание приготовления</small>
                     </div>
                     
                     <div class="d-flex gap-2">
