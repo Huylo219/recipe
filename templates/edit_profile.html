@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Редактировать профиль{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card animate-fade-in">
+            <div class="card-body p-4">
+                <h2 class="mb-4" style="font-family: 'Playfair Display', serif;">
+                    <i class="fas fa-user-edit"></i> Редактировать профиль
+                </h2>
+                
+                <!-- Аватар -->
+                <div class="text-center mb-4">
+                    <h5>Аватар</h5>
+                    {% if current_user.avatar %}
+                        <img src="{{ url_for('uploaded_file', filename=current_user.avatar) }}" 
+                             alt="avatar" 
+                             style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #e8a88a; margin-bottom: 10px;">
+                        <br>
+                        <a href="{{ url_for('delete_avatar') }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Удалить аватар?')">
+                            <i class="fas fa-trash"></i> Удалить аватар
+                        </a>
+                    {% else %}
+                        <div style="width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #d4856b 0%, #e8a88a 100%); margin: 0 auto 10px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-user" style="font-size: 50px; color: white;"></i>
+                        </div>
+                    {% endif %}
+                    
+                    <form method="POST" action="{{ url_for('upload_avatar') }}" enctype="multipart/form-data" class="mt-2">
+                        <div class="row g-2 align-items-center">
+                            <div class="col">
+                                <input type="file" name="avatar" class="form-control" accept="image/*">
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-upload"></i> Загрузить
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-muted">PNG, JPG, JPEG, GIF, WEBP (макс. 5MB)</small>
+                    </form>
+                </div>
+                
+                <hr>
+                
+                <!-- Форма редактирования -->
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-user"></i> Полное имя</label>
+                        <input type="text" name="full_name" class="form-control" value="{{ current_user.full_name or '' }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-info-circle"></i> О себе</label>
+                        <textarea name="bio" class="form-control" rows="4" placeholder="Расскажите немного о себе...">{{ current_user.bio or '' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-map-marker-alt"></i> Местоположение</label>
+                        <input type="text" name="location" class="form-control" value="{{ current_user.location or '' }}" placeholder="Город, страна">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-link"></i> Сайт / Соцсети</label>
+                        <input type="url" name="website" class="form-control" value="{{ current_user.website or '' }}" placeholder="https://...">
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Сохранить изменения
+                        </button>
+                        <a href="{{ url_for('view_profile', username=current_user.username) }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+                
+                <hr>
+                
+                <!-- Смена пароля -->
+                <div class="mt-4">
+                    <h5><i class="fas fa-key"></i> Смена пароля</h5>
+                    <form method="POST" action="{{ url_for('change_password') }}">
+                        <div class="mb-3">
+                            <label class="form-label">Текущий пароль</label>
+                            <input type="password" name="old_password" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Новый пароль</label>
+                            <input type="password" name="new_password" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Подтверждение пароля</label>
+                            <input type="password" name="confirm_password" class="form-control" required>
+                        </div>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-key"></i> Изменить пароль
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
