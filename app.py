@@ -1,5 +1,4 @@
 import os
-import sys
 import tempfile
 from flask import Flask, render_template, request, redirect, url_for, flash, abort, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
@@ -10,48 +9,56 @@ from flask_wtf.csrf import CSRFProtect
 from datetime import datetime
 from functools import wraps
 
-# Создаём приложение
+# ========== НАСТРОЙКА ПРИЛОЖЕНИЯ ==========
+
 app = Flask(__name__, 
             template_folder='templates',
             static_folder='static')
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Инициализация CSRF защиты
+# ========== НАСТРОЙКА БАЗЫ ДАННЫХ ==========
+# Получаем DATABASE_URL из переменных окружения Render
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    # Render использует postgres://, но SQLAlchemy требует postgresql://
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+    print("✅ Using PostgreSQL database (data will persist after restarts)")
+else:
+    # Для локальной разработки используем SQLite
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'recipes.db')
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    print("⚠️ Using SQLite (for local development only - data will NOT persist on Render)")
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# ========== CSRF ЗАЩИТА ==========
 csrf = CSRFProtect()
 csrf.init_app(app)
 
-# Настройка для загрузки аватаров
+# ========== НАСТРОЙКА ЗАГРУЗКИ АВАТАРОВ ==========
 UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'avatars')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
 
-# Разрешенные расширения для аватаров
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Настройка базы данных
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-else:
-    db_path = os.path.join(tempfile.gettempdir(), 'recipes.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-    print(f"Using SQLite database at: {db_path}")
-
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+# ========== ИНИЦИАЛИЗАЦИЯ РАСШИРЕНИЙ ==========
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Пожалуйста, войдите в систему'
 
+# ========== ДЕКОРАТОР ДЛЯ АДМИНА ==========
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -70,6 +77,7 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Личные данные
     full_name = db.Column(db.String(200), default='')
     bio = db.Column(db.Text, default='')
     location = db.Column(db.String(200), default='')
@@ -118,14 +126,18 @@ class Review(db.Model):
     recipe_id = db.Column(db.Integer, db.ForeignKey('recipe.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+# ========== ЗАГРУЗЧИК ПОЛЬЗОВАТЕЛЯ ==========
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# ========== СОЗДАНИЕ ТАБЛИЦ И АДМИНА ==========
+
 def init_db():
     with app.app_context():
         db.create_all()
-        print("✅ Таблицы созданы успешно")
+        print("✅ Database tables created successfully")
         
         admin = User.query.filter_by(username='admin').first()
         if not admin:
@@ -140,7 +152,10 @@ def init_db():
             db.session.add(admin)
             db.session.commit()
             print("✅ Администратор создан: admin / admin123")
+        else:
+            print("ℹ️ Администратор уже существует")
 
+# Запускаем инициализацию
 init_db()
 
 # ========== ВСПОМОГАТЕЛЬНЫЕ МАРШРУТЫ ==========
@@ -284,9 +299,8 @@ def add_recipe():
 def edit_recipe(id):
     recipe = Recipe.query.get_or_404(id)
     
-    # Проверка прав
     if not current_user.is_admin and recipe.user_id != current_user.id:
-        flash('У вас нет прав для редактирования этого рецепта', 'danger')
+        flash('❌ У вас нет прав для редактирования этого рецепта', 'danger')
         return redirect(url_for('index'))
     
     if request.method == 'POST':
@@ -299,11 +313,11 @@ def edit_recipe(id):
             recipe.category = request.form.get('category', 'Основное блюдо')
             
             db.session.commit()
-            flash(f'Рецепт "{recipe.title}" обновлен!', 'success')
+            flash(f'📝 Рецепт "{recipe.title}" успешно обновлен!', 'success')
             return redirect(url_for('recipe_detail', id=recipe.id))
         except Exception as e:
             db.session.rollback()
-            flash(f'Ошибка: {str(e)}', 'danger')
+            flash(f'❌ Ошибка при сохранении: {str(e)}', 'danger')
             return redirect(url_for('edit_recipe', id=recipe.id))
     
     return render_template('edit_recipe.html', recipe=recipe)
@@ -448,6 +462,8 @@ def logout():
     flash('Вы вышли из системы', 'info')
     return redirect(url_for('index'))
 
+# ========== АДМИН-ПАНЕЛЬ ==========
+
 @app.route('/admin')
 @admin_required
 def admin_panel():
@@ -489,9 +505,13 @@ def admin_delete_review(id):
     flash('Отзыв удален администратором', 'info')
     return redirect(url_for('admin_panel'))
 
+# ========== HEALTH CHECK ДЛЯ RENDER ==========
+
 @app.route('/health')
 def health():
     return {"status": "healthy"}, 200
+
+# ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
